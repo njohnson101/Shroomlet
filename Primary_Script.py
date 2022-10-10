@@ -120,7 +120,7 @@ class world_object(pyglet.sprite.Sprite):
 
 class physical_object(world_object):
      
-    def __init__(self, hitboxes = None, velocity = vector(0,0), anchored = True, *args, **kwargs):
+    def __init__(self, hitboxes = None, velocity = vector(0,0), anchored = True, supered=False, *args, **kwargs):
         super().__init__(supered=True,*args,**kwargs)
         if hitboxes == None:
             self.hitboxes = [hitbox()]
@@ -133,7 +133,8 @@ class physical_object(world_object):
         self.movement_restrictions = dict(left=False, right=False, up=False, down=False)
         self.velocity = velocity
         self.anchored = anchored
-        physical_objects.append(self)
+        if not supered:
+            physical_objects.append(self)
 
     def update_hitboxes(self):
         for i in self.hitboxes:
@@ -170,10 +171,11 @@ class physical_object(world_object):
 class stage(physical_object):
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args,**kwargs)
+        super().__init__(supered=True,*args,**kwargs)
         for i in self.hitboxes:
             i.color=(139,69,19)
         stage_objects.append(self)
+        physical_objects.append(self)
 
 class player_class(physical_object):
     def __init__(self, speed=10, jump_height=0, life = 100, *args, **kwargs):
@@ -212,18 +214,21 @@ class player_class(physical_object):
             x_lower_1, x_upper_1 = i.world_pos.x - i.world_size.x/2, i.world_pos.x + i.world_size.x/2
             y_lower_1, y_upper_1 = i.world_pos.y - i.world_size.y/2, i.world_pos.y + i.world_size.y/2
             for m in objs:
-                for w in m.hitboxes:
-                    # 2 rectangles
-                    if isinstance(w, hitbox):
-                        x_lower_2, x_upper_2 = w.world_pos.x - w.world_size.x/2, w.world_pos.x + w.world_size.x/2
-                        y_lower_2, y_upper_2 = w.world_pos.y - w.world_size.y/2, w.world_pos.y + w.world_size.y/2
-                        x_lower_2_colliding = x_lower_2>=x_lower_1 and x_lower_2<=x_upper_1
-                        x_lower_1_colliding = x_lower_1>=x_lower_2 and x_lower_1<=x_upper_2
-                        y_lower_2_colliding = y_lower_2>=y_lower_1 and y_lower_2<=y_upper_1
-                        y_lower_1_colliding = y_lower_1>=y_lower_2 and y_lower_1<=y_upper_2
-                        if (x_lower_2_colliding or x_lower_1_colliding) and (y_lower_2_colliding or y_lower_1_colliding):
-                            self.collisions.append(i)
-                            if m.__class__.__name__ == "stage":
+                if m!=self:
+                    print(m)
+                    for w in m.hitboxes:
+                        # 2 rectangles
+                        if isinstance(w, hitbox):
+                            x_lower_2, x_upper_2 = w.world_pos.x - w.world_size.x/2, w.world_pos.x + w.world_size.x/2
+                            y_lower_2, y_upper_2 = w.world_pos.y - w.world_size.y/2, w.world_pos.y + w.world_size.y/2
+                            x_lower_2_colliding = x_lower_2>=x_lower_1 and x_lower_2<=x_upper_1
+                            x_lower_1_colliding = x_lower_1>=x_lower_2 and x_lower_1<=x_upper_2
+                            y_lower_2_colliding = y_lower_2>=y_lower_1 and y_lower_2<=y_upper_1
+                            y_lower_1_colliding = y_lower_1>=y_lower_2 and y_lower_1<=y_upper_2
+                            if (x_lower_2_colliding or x_lower_1_colliding) and (y_lower_2_colliding or y_lower_1_colliding):
+                                print("collision!!!111!11")
+                                self.collisions.append(i)
+#                                if m.__class__.__name__ == "physical_object":
                                 x_overlap = None
                                 y_overlap = None
                                 if x_lower_2_colliding and not x_lower_1_colliding:
@@ -274,7 +279,7 @@ class player_class(physical_object):
                                         else:
                                             self.movement_restrictions['down'] = True
                                             self.world_pos += vector(0,y_overlap)
-                            break
+                                break
 
     def standard_movement(self, dt):
         if self.keys['left']:
@@ -396,7 +401,7 @@ class tween(object):
 dirt_image = load_image('dirt.png')
 
 # Generate Dirt
-dirt = stage(
+dirt = physical_object(
     img = dirt_image,
     world_pos = vector(10,0.5),
     world_size = 3,
@@ -544,7 +549,7 @@ def central_clock(dt):
         if not i.anchored:
             i.update(dt)
     player.standard_movement(dt)
-    player.check_collisions(stage_objects,dt)
+    player.check_collisions(physical_objects,dt)
     window_map()
 
 clock.schedule_interval(central_clock, 1/120.0)
