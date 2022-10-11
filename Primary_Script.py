@@ -20,6 +20,12 @@ def load_image(image):
 def meters(feet, inches=0):
     return (feet + inches/12)*0.3048
 
+def check_tweens(self,key,tweened):
+    if not tweened:
+        for i in self.tweens:
+            if i.attribute == key:
+                i.stop()
+
 
 physical_objects = []
 stage_objects = []
@@ -100,16 +106,18 @@ class hitbox(pyglet.shapes.Rectangle):
 
 class world_object(pyglet.sprite.Sprite):
     def __init__(self, world_pos = vector(0,0), world_size=0, zindex=1, supered=False, *args, **kwargs):
+        self.__dict__["tweens"] = []
         super().__init__(x=0,y=0,*args,**kwargs)
         self.__dict__["world_pos"] = world_pos
         if supered:
             self.__dict__["world_size"] = world_size
         else:
             self.world_size = world_size
-        self.tweens = []
         self.zindex = zindex
         objects.append(self)
-    def __setattr__(self, key, value):
+
+    def __setattr__(self, key, value, tweened=False):
+        check_tweens(self,key,tweened)
         if key == "world_size":
             if value.__class__.__name__ != "vector":
                 self.__dict__["world_size"] = vector(self.image.width/self.image.height*value, value)
@@ -141,7 +149,8 @@ class physical_object(world_object):
             i.world_pos = vector(self.world_pos.x + self.world_size.x*i.offset.x, self.world_pos.y + self.world_size.y*i.offset.y)
             i.world_size = vector(self.world_size.x*i.scale.x, self.world_size.y*i.scale.y)
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key, value, tweened=False):
+        check_tweens(self,key,tweened)
         if key == "world_pos":
             self.__dict__["world_pos"] = value
             self.update_hitboxes()
@@ -324,22 +333,22 @@ def quadratic_in_out(t,c,b,d):
 
 def step(dt,self):
     if self.vector == False:
-        setattr(self.object,self.attribute,self.func(t=self.current_time,c=self.change_in_value,b=self.start_value,d=self.duration))
+        self.object.__setattr__(self.attribute,self.func(t=self.current_time,c=self.change_in_value,b=self.start_value,d=self.duration),tweened=True)
     else:
         if self.vector == "x":
-            setattr(self.object,self.attribute,vector(self.func(t=self.current_time,c=self.change_in_value,b=self.start_value,d=self.duration),self.object.__dict__[self.attribute].y))
+            self.object.__setattr__(self.attribute,vector(self.func(t=self.current_time,c=self.change_in_value,b=self.start_value,d=self.duration),self.object.__dict__[self.attribute].y),tweened=True)
         elif self.vector == "y":
-            setattr(self.object,self.attribute,vector(self.object.__dict__[self.attribute].x,self.func(t=self.current_time,c=self.change_in_value,b=self.start_value,d=self.duration)))
+            self.object.__setattr__(self.attribute,vector(self.object.__dict__[self.attribute].x,self.func(t=self.current_time,c=self.change_in_value,b=self.start_value,d=self.duration)),tweened=True)
     self.current_time = self.current_time + dt
     if self.current_time >= self.duration:
         self.stop()
         if self.vector != False:
             if self.vector == "x":
-                setattr(self.object,self.attribute,vector(self.target,self.object.__dict__[self.attribute].y))
+                self.object.__setattr__(self.attribute,vector(self.target,self.object.__dict__[self.attribute].y),tweened=True)
             elif self.vector == "y":
-                setattr(self.object,self.attribute,vector(self.object.__dict__[self.attribute].x,self.target))
+                self.object.__setattr__(self.attribute,vector(self.object.__dict__[self.attribute].x,self.target),tweened=True)
         else:
-            setattr(self.object,self.attribute,self.target)
+            self.object.__setattr__(self.attribute,self.target,tweened=True)
 
 tweens = {
     "Linear_Out": linear_tween, "Linear_In": linear_tween, "Linear_InOut": linear_tween, 
@@ -381,7 +390,6 @@ class tween(object):
             if self.vector == "y":
                 self.start_value = self.object.__dict__[self.attribute].y
         else:
-            print(self.object.__dict__)
             self.start_value = self.object.__getattribute__(self.attribute)
         self.change_in_value = self.target - self.start_value
         self.clock = clock.Clock()
@@ -445,6 +453,13 @@ twern = tween(
 twen.play()
 twern.play()
 
+""" def test(dt):
+    print("TESTINGEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+    sick_toad.world_pos = vector(15,5)
+    sick_toad.rotation = 0
+
+clock.schedule_once(test,5) """
+
 # Generate player
 player_hitboxes = [hitbox(scale = vector(0.58,0.9),)]
 player_hitboxes[0].opacity = 128
@@ -466,10 +481,15 @@ window.push_handlers(player)
 
 class viewport_class(object):
     def __init__(self, position, aspect_ratio, height_meters):
+        self.__dict__["tweens"] = []
         self.position = position
         self.aspect_ratio = aspect_ratio
         self.size_meters = vector(aspect_ratio*height_meters,height_meters)
-        self.tweens = []
+    
+    def __setattr__(self, key, value, tweened=False):
+        check_tweens(self,key,tweened)
+        self.__dict__[key] = value
+
 
 viewport = viewport_class(position = vector(0,0), aspect_ratio = 4/3, height_meters=40)
 in_air = True
