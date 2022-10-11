@@ -29,7 +29,7 @@ objects = []
 
 #  Variables----------------------------------------------------------------------------------------------------------------------------------------------------
 
-draw_hitboxes = True
+draw_hitboxes = False
 gravitational_acceleration = -10
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -215,7 +215,6 @@ class player_class(physical_object):
             y_lower_1, y_upper_1 = i.world_pos.y - i.world_size.y/2, i.world_pos.y + i.world_size.y/2
             for m in objs:
                 if m!=self:
-                    print(m)
                     for w in m.hitboxes:
                         # 2 rectangles
                         if isinstance(w, hitbox):
@@ -226,7 +225,6 @@ class player_class(physical_object):
                             y_lower_2_colliding = y_lower_2>=y_lower_1 and y_lower_2<=y_upper_1
                             y_lower_1_colliding = y_lower_1>=y_lower_2 and y_lower_1<=y_upper_2
                             if (x_lower_2_colliding or x_lower_1_colliding) and (y_lower_2_colliding or y_lower_1_colliding):
-                                print("collision!!!111!11")
                                 self.collisions.append(i)
 #                                if m.__class__.__name__ == "physical_object":
                                 x_overlap = None
@@ -304,26 +302,27 @@ class player_class(physical_object):
 #endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
 
 #region Tween Service-----------------------------------------------------------------------------------------------------------------------------------------
+tween_clocks = []
+
 def linear_tween(t,c,b,d): #t=current_time, c=change in value, b=start value, d=duration
     return c*t/d+b
 
 def quadratic_out(t,c,b,d):
-    t /= d
-    return -c * t*(t-2) + b
+    w = t/d
+    return -c * w*(w-2) + b
 
 def quadratic_in(t,c,b,d):
-    t /= d
-    return c*t*t + b
+    w = t/d
+    return c*w*w + b
 
 def quadratic_in_out(t,c,b,d):
-    t /= d
-    if t<1:
-        return c/2*t*t + b
-    t -= 1
-    return - c/2 * (t*(t-2) - 1) + b
+    w = t/d
+    if w<1:
+        return c/2*w*w + b
+    w = w-1
+    return - c/2 * (w*(w-2) - 1) + b
 
 def step(dt,self):
-    self.current_time += dt
     if self.vector == False:
         setattr(self.object,self.attribute,self.func(t=self.current_time,c=self.change_in_value,b=self.start_value,d=self.duration))
     else:
@@ -382,15 +381,18 @@ class tween(object):
             if self.vector == "y":
                 self.start_value = self.object.__dict__[self.attribute].y
         else:
-            self.start_value = self.object.__dict__[self.attribute]
+            print(self.object.__dict__)
+            self.start_value = self.object.__getattribute__(self.attribute)
         self.change_in_value = self.target - self.start_value
-        self.clock = clock.get_default()
-        self.clock.schedule_interval(step, 1/120.0, self)
+        self.clock = clock.Clock()
+        self.clock.schedule(step, self)
+        tween_clocks.append(self.clock)
 
     def stop(self):
         self.object.tweens.remove(self)
         self.clock.unschedule(step)
-        print("Tween stopped")
+        tween_clocks.remove(self.clock)
+        del self.clock
         del self
 #endregion----------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -418,10 +420,30 @@ dirt2 = stage(
 # Generate Sick Toad
 sick_toad = world_object(
     img = load_image('sick_toad.png'),
-    world_pos=vector(25,0.5),
-    world_size=6,
+    world_pos=vector(15,5),
+    world_size=40,
     zindex = 100000
 )
+#sick_toad.rotation = 25
+
+twen = tween(
+    object = sick_toad,
+    attribute="world_pos.y",
+    target = 50,
+    duration = 10,
+    easing_style = "Quadratic",
+    easing_direction="In"
+)
+twern = tween(
+    object = sick_toad,
+    attribute="rotation",
+    target = 500,
+    duration = 10,
+    easing_style = "Quadratic",
+    easing_direction="In"
+)
+twen.play()
+twern.play()
 
 # Generate player
 player_hitboxes = [hitbox(scale = vector(0.58,0.9),)]
@@ -545,6 +567,8 @@ def on_resize(width,height):
 
 #region Event Cycle------------------------------------------------------------------------------------------------------------------------------------------
 def central_clock(dt):
+    for i in tween_clocks:
+        i.tick()
     for i in physical_objects:
         if not i.anchored:
             i.update(dt)
