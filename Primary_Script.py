@@ -116,8 +116,9 @@ class world_object(pyglet.sprite.Sprite):
         self.zindex = zindex
         objects.append(self)
 
-    def __setattr__(self, key, value, tweened=False):
-        check_tweens(self,key,tweened)
+    def __setattr__(self, key, value, tweened=False,supered=False):
+        if not supered:
+            check_tweens(self,key,tweened)
         if key == "world_size":
             if value.__class__.__name__ != "vector":
                 self.__dict__["world_size"] = vector(self.image.width/self.image.height*value, value)
@@ -161,7 +162,7 @@ class physical_object(world_object):
                 self.__dict__["world_size"] = value
             self.update_hitboxes()
         else:
-            super().__setattr__(key, value)
+            super().__setattr__(key, value, supered=True)
 
     def update(self,dt):
         if not self.movement_restrictions['down']:
@@ -404,7 +405,6 @@ class tween(object):
         del self
 #endregion----------------------------------------------------------------------------------------------------------------------------------------------------
 
-
 #region WORKSPACE---------------------------------------------------------------------------------------------------------------------------------------------
 
 # Load and format images
@@ -426,13 +426,16 @@ dirt2 = stage(
 )
 
 # Generate Sick Toad
-sick_toad = world_object(
+toad_hitboxes = [hitbox(scale = vector(0.4,0.4),)]
+toad_hitboxes[0].opacity = 128
+sick_toad = physical_object(
     img = load_image('sick_toad.png'),
     world_pos=vector(15,5),
+    hitboxes=toad_hitboxes,
     world_size=40,
     zindex = 100000
 )
-#sick_toad.rotation = 25
+sick_toad.rotation = 25
 
 twen = tween(
     object = sick_toad,
