@@ -379,11 +379,6 @@ class tween(object):
         self.func = tweens[easing_style + "_"+easing_direction]
 
     def play(self):
-#        for i in self.object.tweens:
-#            if i.vector != False:
-#                if self.vector !=False:
-#
-#            if i.attribute == self.attribute
         self.object.tweens.append(self)
         if self.vector != False:
             if self.vector == "x":
@@ -494,7 +489,7 @@ class viewport_class(object):
         self.__dict__[key] = value
 
 
-viewport = viewport_class(position = vector(0,0), aspect_ratio = 4/3, height_meters=40)
+viewport = viewport_class(position = vector(0,0), aspect_ratio = 4/3, height_meters=20)
 in_air = True
 blackout = (window.width-math.floor(viewport.aspect_ratio*window.height))//2
 left_shade = pyglet.shapes.Rectangle(
