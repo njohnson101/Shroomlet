@@ -37,12 +37,13 @@ right_shade = pyglet.shapes.Rectangle(
     color=(0,0,0)
 )
 
+#dialogue_box_image = load_image("textbox.webp")
 dialogue_box_image = load_image("obama.png")
 dialogue_box = pyglet.sprite.Sprite(dialogue_box_image,x=window.width//2,y=window.height*0.825)
 dialogue_box.scale_x = 1.65
 dialogue_text = pyglet.text.Label(
     "",
-    color=(255,0,0,255),
+    color=(0,0,0,255),
     anchor_x="center",anchor_y="center",
     x=dialogue_box.x,y=dialogue_box.y,
     width=dialogue_box.width-10,height=dialogue_box.height-10,
@@ -79,10 +80,13 @@ class dialogue():
         if not dialogue.standby and dialogue.speaking and dialogue.char<(dialogue.queue[0]["speed"]**-1)*(dialogue.time+dt):
             dialogue.char += 1
             dialogue.textbox.text = dialogue.queue[0]["text"][0:dialogue.char]
+            dialogue.textbox.color = dialogue.queue[0]["color"]
             if dialogue.char == len(dialogue.queue[0]["text"]):
                 print("standby")
                 dialogue.speaking = False
                 dialogue.standby = True
+        elif dialogue.standby and :
+
 
     def speak(text,style):
         dict = merge({"text": text, "length":len(text)},style)
@@ -109,9 +113,12 @@ pyglet.clock.schedule_interval(dialogue.update_dialogue,1/120.0)
 cassy = {
     "font": "Times New Roman",
     "sound": None,
-    "color": (51,255,187,0),
+    "color": (0,0,0,255),
     "speed": 1/30.0
 }
+
+def on_mouse_press()
+
 
 dialogue.speak("Le Lorem Ipsum est simplement du faux texte employé dans la composition et la mise en page avant impression.",cassy)
 

@@ -549,7 +549,7 @@ def window_map():
         for i in objects:
             upper_x, lower_x = i.world_pos.x + i.world_size.x/2, i.world_pos.x - i.world_size.x/2
             upper_y, lower_y = i.world_pos.y + i.world_size.y/2, i.world_pos.y - i.world_size.y/2
-            if (((upper_x >= viewport.position.x and upper_x <= viewport.position.x + viewport.size_meters.x) or (lower_x >= viewport.position.x and lower_x <= viewport.position.x + viewport.size_meters.x)) or (lower_x < viewport.position.x and upper_x > viewport.position.x + viewport.size_meters.x)) and (((upper_y >= viewport.position.y and upper_y <= viewport.position.y + viewport.size_meters.y) or (lower_y >= viewport.position.y and lower_y <= viewport.position.y + viewport.size_meters.y)) or (lower_x < viewport.position.x and upper_x > viewport.position.x + viewport.size_meters.y)):
+            if (((upper_x >= viewport.position.x and upper_x <= viewport.position.x + viewport.size_meters.x) or (lower_x >= viewport.position.x and lower_x <= viewport.position.x + viewport.size_meters.x)) or (lower_x < viewport.position.x and upper_x > viewport.position.x + viewport.size_meters.x)) and (((upper_y >= viewport.position.y and upper_y <= viewport.position.y + viewport.size_meters.y) or (lower_y >= viewport.position.y and lower_y <= viewport.position.y + viewport.size_meters.y)) or (lower_y < viewport.position.y and upper_y > viewport.position.y + viewport.size_meters.y)):
                 position(i)
                 local_in_frame_objects.append(i)
             if draw_hitboxes and hasattr(i,"hitboxes"):
