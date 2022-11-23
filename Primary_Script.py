@@ -17,9 +17,6 @@ def load_image(image):
     img.anchor_y = img.height//2
     return img
 
-def meters(feet, inches=0):
-    return (feet + inches/12)*0.3048
-
 def check_tweens(self,key,tweened):
     if not tweened:
         for i in self.tweens:
@@ -36,7 +33,12 @@ objects = []
 #  Variables----------------------------------------------------------------------------------------------------------------------------------------------------
 
 draw_hitboxes = False
+viewport_height = 8
 gravitational_acceleration = -10
+terminal_velocity = -50
+wall_friction = 5
+ground_friction = 2  #counterforce to velocity. Essentially the velocity applied in the other direction when coming to a stop/turning. p/s (players/second)
+air_friction = 5
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -129,7 +131,7 @@ class world_object(pyglet.sprite.Sprite):
 
 class physical_object(world_object):
      
-    def __init__(self, hitboxes = None, velocity = vector(0,0), anchored = True, supered=False, *args, **kwargs):
+    def __init__(self, hitboxes = None, velocity = vector(0,0), gravitational_pull = gravitational_acceleration, terminal_pull = terminal_velocity, anchored = True, supered=False, *args, **kwargs):
         super().__init__(supered=True,*args,**kwargs)
         if hitboxes == None:
             self.hitboxes = [hitbox()]
@@ -139,7 +141,8 @@ class physical_object(world_object):
             i.color = (0,0,255)
             i.parent = self
         self.world_size = self.world_size
-        self.movement_restrictions = dict(left=False, right=False, up=False, down=False)
+        self.gravitational_pull = gravitational_pull
+        self.terminal_pull = terminal_pull
         self.velocity = velocity
         self.anchored = anchored
         if not supered:
@@ -165,18 +168,33 @@ class physical_object(world_object):
             super().__setattr__(key, value, supered=True)
 
     def update(self,dt):
-        if not self.movement_restrictions['down']:
-            self.velocity.y += 2*gravitational_acceleration*dt
+        """ if self.__class__.__name__ == "player_class":
+            print(self.gravitational_pull)
+            print(self.terminal_pull) """
+        if not self.movement_restricted('down') and self.velocity.y > self.terminal_pull:
+            self.velocity.y += 2*self.gravitational_pull*dt
+            if self.velocity.y < self.terminal_pull:
+                self.velocity.y = self.terminal_pull
+        elif self.movement_restricted('down') and self.velocity.y<0:
+            self.velocity.y = 0
         x_update, y_update = 0,0
-        if self.velocity.x < 0 and not self.movement_restrictions['left']:
-            x_update = self.velocity.x * dt
-        elif self.velocity.x > 0 and not self.movement_restrictions['right']:
-            x_update = self.velocity.x * dt
-        if self.velocity.y < 0 and not self.movement_restrictions['down']:
+        if self.velocity.x < 0:
+            if not self.movement_restricted('left'):
+                x_update = self.velocity.x * dt
+            else:
+                self.velocity.x = 0
+                x_update = 0
+        elif self.velocity.x > 0:
+            if not self.movement_restricted('right'):
+                x_update = self.velocity.x * dt
+            else:
+                self.velocity.x = 0
+                x_update = 0
+        if self.velocity.y < 0 and not self.movement_restricted('down'):
             y_update = self.velocity.y * dt
-        elif self.velocity.y > 0 and not self.movement_restrictions['up']:
+        elif self.velocity.y > 0 and not self.movement_restricted('up'):
             y_update = self.velocity.y * dt
-        self.world_pos += vector(x_update, y_update)  
+        self.world_pos += vector(x_update, y_update)
 
 class stage(physical_object):
 
@@ -188,38 +206,51 @@ class stage(physical_object):
         physical_objects.append(self)
 
 class player_class(physical_object):
-    def __init__(self, speed=10, jump_height=0, life = 100, *args, **kwargs):
+    def __init__(self, speed=10, acceleration=5, jump_height=0, life = 100, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for i in self.hitboxes:
             i.color = (0,255,0)
         self.keys = dict(left=False, right=False, space=False)
-        self.speed = speed #velocity
+        self.dominant_key = None
+        self.acceleration = acceleration
+        self.speed = speed # max velocity
         self.jump_height = jump_height
         self.life = life
-        self.walking = dict(left=False,right=False)
         self.collisions = []
+        self.right_clung = False
+        self.left_clung = False
         self.anchored = False
     
     def on_key_press(self, button, modifiers):
         if button == key.LEFT:
             self.keys['left'] = True
+            if self.keys['right']:
+                self.dominant_key = 'right'
         elif button == key.RIGHT:
             self.keys['right'] = True
+            if self.keys['left']:
+                self.dominant_key = 'left'
         elif button == key.SPACE:
             self.keys['space'] = True
 
     def on_key_release(self, button, modifiers):
         if button == key.LEFT:
             self.keys['left'] = False
+            self.dominant_key = None
         elif button == key.RIGHT:
             self.keys['right'] = False
+            self.dominant_key = None
         elif button == key.SPACE:
             self.keys['space'] = False
+
+    def movement_restricted(self,direction):
+        for i in self.collisions:
+            if direction == i["direction"]:
+                return True
 
     def check_collisions(self, objs, dt):
         hitboxes = self.hitboxes
         self.collisions = []
-        self.movement_restrictions = dict(left=False, right=False, up=False, down=False)
         for i in hitboxes:
             x_lower_1, x_upper_1 = i.world_pos.x - i.world_size.x/2, i.world_pos.x + i.world_size.x/2
             y_lower_1, y_upper_1 = i.world_pos.y - i.world_size.y/2, i.world_pos.y + i.world_size.y/2
@@ -235,7 +266,6 @@ class player_class(physical_object):
                             y_lower_2_colliding = y_lower_2>=y_lower_1 and y_lower_2<=y_upper_1
                             y_lower_1_colliding = y_lower_1>=y_lower_2 and y_lower_1<=y_upper_2
                             if (x_lower_2_colliding or x_lower_1_colliding) and (y_lower_2_colliding or y_lower_1_colliding):
-                                self.collisions.append(i)
 #                                if m.__class__.__name__ == "physical_object":
                                 x_overlap = None
                                 y_overlap = None
@@ -261,54 +291,82 @@ class player_class(physical_object):
                                         y_overlap = w.world_size.y
                                 if y_overlap > x_overlap:
                                     if x_lower_2_colliding and not x_lower_1_colliding:
-                                        self.movement_restrictions['right'] = True
+                                        self.collisions.append({"object":i,"direction":"right"})
                                         self.world_pos -= vector(x_overlap,0)
                                     elif x_lower_1_colliding and not x_lower_2_colliding:
-                                        self.movement_restrictions['left'] = True
+                                        self.collisions.append({"object":i,"direction":"left"})
                                         self.world_pos += vector(x_overlap,0)
                                     else:
                                         if i.x < w.x:
-                                            self.movement_restrictions['right'] = True
+                                            self.collisions.append({"object":i,"direction":"right"})
                                             self.world_pos -= vector(x_overlap,0)
                                         else:
-                                            self.movement_restrictions['left'] = True
+                                            self.collisions.append({"object":i,"direction":"left"})
                                             self.world_pos += vector(x_overlap,0,)
                                 else:
                                     if y_lower_1_colliding and not y_lower_2_colliding:
-                                        self.movement_restrictions['down'] = True
+                                        self.collisions.append({"object":i,"direction":"down"})
                                         self.world_pos += vector(0,y_overlap)
                                     elif y_lower_2_colliding and not y_lower_1_colliding:
-                                        self.movement_restrictions['up'] = True
+                                        self.collisions.append({"object":i,"direction":"up"})
                                         self.world_pos -= vector(0,y_overlap)
                                     else:
                                         if i.y < w.y:
-                                            self.movement_restrictions['up'] = True
+                                            self.collisions.append({"object":i,"direction":"up"})
                                             self.world_pos -= vector(0,y_overlap)
                                         else:
-                                            self.movement_restrictions['down'] = True
+                                            self.collisions.append({"object":i,"direction":"down"})
                                             self.world_pos += vector(0,y_overlap)
                                 break
 
     def standard_movement(self, dt):
         if self.keys['left']:
-            if not self.movement_restrictions['left'] and not self.walking['left']:
-                self.walking['left'] = True
-                self.velocity.x -= self.speed
+            if not self.movement_restricted("left") and self.dominant_key != "right":
+                if self.velocity.x > -self.speed:
+                    self.velocity.x -= self.acceleration*dt
+                    if self.velocity.x < -self.speed:
+                        self.velocity.x = -self.speed
+            elif self.movement_restricted('left') and not self.left_clung and self.velocity.y<=-2:
+                print(self.velocity.y)
+                self.left_clung = True
+                print("cling on the left")
+                self.gravitational_pull = 0
+                self.velocity.y = -2
+        elif self.keys['right']:
+            if not self.movement_restricted("right") and self.dominant_key != "left":
+                if self.velocity.x < self.speed:
+                    self.velocity.x += self.acceleration*dt
+                    if self.velocity.x > self.speed:
+                        self.velocity.x = self.speed
+            elif self.movement_restricted('right') and not self.right_clung and self.velocity.y<=-2:
+                self.right_clung = True
+                print("cling on the right")
+                self.gravitational_pull = 0
+                self.velocity.y = -2
         else:
-            if self.walking['left']:
-                self.walking['left'] = False
-                self.velocity.x += self.speed
-        if self.keys['right']:
-            if not self.movement_restrictions['right'] and not self.walking['right']:
-                self.walking['right'] = True
-                self.velocity.x += self.speed
-        else:
-            if self.walking['right']:
-                self.walking['right'] = False
-                self.velocity.x -= self.speed
+            if self.velocity.x < 0:
+                self.velocity.x += self.acceleration*dt
+                if self.velocity.x > 0:
+                    self.velocity.x = 0
+            elif self.velocity.x > 0:
+                self.velocity.x -= self.acceleration*dt
+                if self.velocity.x < 0:
+                    self.velocity.x = 0
         if self.keys['space']:
-            if not self.movement_restrictions['up'] and self.movement_restrictions['down']:
-                self.velocity.y = 2*(-gravitational_acceleration*self.jump_height)**0.5
+            if not self.movement_restricted("up"):
+                if self.movement_restricted('down'):
+                    self.velocity.y = 2*(-gravitational_acceleration*self.jump_height)**0.5
+                elif self.left_clung:
+                    self.left_clung = False
+                    self.gravitational_pull = gravitational_acceleration
+                    self.velocity.x = self.speed
+                    self.velocity.y = 2*(-gravitational_acceleration*self.jump_height)**0.5
+                elif self.right_clung:
+                    self.right_clung = False
+                    self.gravitational_pull = gravitational_acceleration
+                    self.velocity.x = -self.speed
+                    self.velocity.y = 2*(-gravitational_acceleration*self.jump_height)**0.5
+
 #endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
 
 #region Tween Service-----------------------------------------------------------------------------------------------------------------------------------------
@@ -404,59 +462,30 @@ class tween(object):
 
 # Load and format images
 dirt_image = load_image('dirt.png')
+bricks = load_image('bricks.webp')
 
 # Generate Dirt
-dirt = physical_object(
+dirt = stage(
     img = dirt_image,
     world_pos = vector(10,0.5),
     world_size = 3,
     zindex = 100
 )
 
-dirt2 = stage(
-    img = dirt_image,
-    world_pos = vector(25,0.5),
-    world_size = 2,
-    zindex = 200
+# Generate Bricks
+wall = stage(
+    img = bricks,
+    world_pos = vector(3,12), #3,12
+    world_size = vector(2,35),
+    zindex = 10000
 )
 
-# Generate Sick Toad
-toad_hitboxes = [hitbox(scale = vector(0.4,0.4),)]
-toad_hitboxes[0].opacity = 128
-sick_toad = physical_object(
-    img = load_image('sick_toad.png'),
-    world_pos=vector(15,5),
-    hitboxes=toad_hitboxes,
-    world_size=40,
-    zindex = 100000
+wall2 = stage(
+    img = bricks,
+    world_pos = vector(8,12), #8,12
+    world_size = vector(2,35),
+    zindex = 10000
 )
-sick_toad.rotation = 25
-
-twen = tween(
-    object = sick_toad,
-    attribute="world_pos.y",
-    target = 50,
-    duration = 10,
-    easing_style = "Quadratic",
-    easing_direction="In"
-)
-twern = tween(
-    object = sick_toad,
-    attribute="rotation",
-    target = 500,
-    duration = 10,
-    easing_style = "Quadratic",
-    easing_direction="In"
-)
-twen.play()
-twern.play()
-
-""" def test(dt):
-    print("TESTINGEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
-    sick_toad.world_pos = vector(15,5)
-    sick_toad.rotation = 0
-
-clock.schedule_once(test,5) """
 
 # Generate player
 player_hitboxes = [hitbox(scale = vector(0.58,0.9),)]
@@ -464,9 +493,11 @@ player_hitboxes[0].opacity = 128
 player = player_class(
     hitboxes=player_hitboxes,
     img=load_image("toadsworth.png"),
-    jump_height=2,
+    jump_height=1.5,
     world_pos = vector(5,8),
-    world_size = 4,
+    world_size = 1,
+    speed = 5,
+    acceleration=20, #CURRENTLY, ONLY ACCELERATION DECIDES TURN AROUND TIME. THIS IS TEMPORARY; MUST ADD INTO ACCOUNT DIFFERENCE BETWEEN AIR AND GROUND (FRICTION)
     zindex = 500
 )
 
@@ -489,7 +520,7 @@ class viewport_class(object):
         self.__dict__[key] = value
 
 
-viewport = viewport_class(position = vector(0,0), aspect_ratio = 4/3, height_meters=20)
+viewport = viewport_class(position = vector(0,0), aspect_ratio = 4/3, height_meters=viewport_height)
 in_air = True
 blackout = (window.width-math.floor(viewport.aspect_ratio*window.height))//2
 left_shade = pyglet.shapes.Rectangle(
@@ -508,7 +539,8 @@ in_frame_objects = []
 
 def position(i):
     viewport_pixels = vector(math.floor(viewport.aspect_ratio*window.height),window.height)
-    i.scale = i.world_size.y/viewport.size_meters.y*viewport_pixels.y/i.image.height
+    i.scale_y = i.world_size.y/viewport.size_meters.y*viewport_pixels.y/i.image.height
+    i.scale_x = i.world_size.x/viewport.size_meters.x*viewport_pixels.x/i.image.width
     i.x = math.floor((i.world_pos.x-i.world_size.x/2-viewport.position.x)/viewport.size_meters.x*viewport_pixels.x+i.width/2)+blackout
     i.y = math.floor((i.world_pos.y-i.world_size.y/2-viewport.position.y)/viewport.size_meters.y*viewport_pixels.y+i.height/2)
 
@@ -529,7 +561,7 @@ def window_map():
         elif player.world_pos.x < viewport.position.x + 1/3*viewport.size_meters.x:
             destination_x = player.world_pos.x - 1/3*viewport.size_meters.x
             viewport.position.x = destination_x
-        if player.movement_restrictions['down'] and in_air:
+        if player.movement_restricted('down') and in_air:
             in_air = False
             destination_y = player.world_pos.y - 1/6*viewport.size_meters.y
             if destination_y != viewport.position.y:
@@ -542,7 +574,7 @@ def window_map():
                 easing_direction="Out"
                 )
                 viewport_tween.play()
-        elif not player.movement_restrictions['down'] and not in_air:
+        elif not player.movement_restricted('down') and not in_air:
             in_air = True
         local_in_frame_objects = []
         viewport.size_meters.x = viewport.size_meters.y*viewport.aspect_ratio
