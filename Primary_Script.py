@@ -7,8 +7,6 @@ clock = pyglet.clock
 hitboxes = pyglet.graphics.Batch()
 
 window = pyglet.window.Window(fullscreen=True)
-icon = pyglet.image.load('sick_toad.png')
-window.set_icon(icon)
 window.set_caption('Skyrim')
 
 def load_image(image):
@@ -26,6 +24,7 @@ def check_tweens(self,key,tweened):
 
 physical_objects = []
 stage_objects = []
+backgrounds = []
 objects = []
 
 #endregion----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -106,6 +105,48 @@ class hitbox(pyglet.shapes.Rectangle):
         self.world_size = vector(0,0)
         self.batch = hitboxes
 
+anim_clocks = []
+
+def anim_step(dt, self):
+    self.timer += dt
+    change = False
+    while self.timer-self.last_change >= self.frames[self.current_frame]["duration"]:
+        change = True
+        self.last_change += self.frames[self.current_frame]["duration"]
+        self.current_frame += 1
+        print("Frame "+str(self.current_frame))
+        if self.current_frame == len(self.frames):
+            self.current_frame = 0
+    if change:
+        print("There has been a change")
+        self.target.img = self.frames[self.current_frame]["image"]
+
+class animation(object):
+    def __init__(self, frames, target, duration=None, loop=True):
+        tofu = []
+        if duration != None:
+            for i in frames:
+                tofu.append({"image":i,"duration":duration})
+        else:
+            tofu = frames
+        self.frames = tofu
+        self.timer = 0
+        self.last_change = 0
+        self.current_frame = 0
+        self.target = target
+        self.loop = loop
+        self.clock = None
+
+    def play(self):
+        self.clock = clock.Clock()
+        self.clock.schedule(anim_step, self)
+        anim_clocks.append(self.clock)
+
+    def stop(self):
+        self.clock.unschedule(anim_step)
+        anim_clocks.remove(self.clock)
+        del self.clock
+
 class world_object(pyglet.sprite.Sprite):
     def __init__(self, world_pos = vector(0,0), world_size=0, zindex=1, supered=False, *args, **kwargs):
         self.__dict__["tweens"] = []
@@ -128,6 +169,13 @@ class world_object(pyglet.sprite.Sprite):
                 self.__dict__["world_size"] = value
         else:
             super().__setattr__(key, value)
+
+class background(world_object):
+    def __init__(self, distance = 2,*args, **kwargs):
+        super().__init__(supered=True,*args,**kwargs)
+        self.distance = distance
+        self.world_size = self.world_size
+        backgrounds.append(self)
 
 class physical_object(world_object):
      
@@ -319,7 +367,7 @@ class player_class(physical_object):
                                             self.world_pos += vector(0,y_overlap)
                                 break
 
-    def standard_movement(self, dt):
+    def standard_movement(self, dt): # WALL JUMPS NEED TO ONLY WORK WITH STAGE OBJECTS
         if self.keys['left']:
             if not self.movement_restricted("left") and self.dominant_key != "right":
                 if self.velocity.x > -self.speed:
@@ -462,7 +510,6 @@ class tween(object):
 
 # Load and format images
 dirt_image = load_image('dirt.png')
-bricks = load_image('bricks.webp')
 
 # Generate Dirt
 dirt = stage(
@@ -472,20 +519,35 @@ dirt = stage(
     zindex = 100
 )
 
-# Generate Bricks
-wall = stage(
-    img = bricks,
-    world_pos = vector(3,12), #3,12
-    world_size = vector(2,35),
-    zindex = 10000
+oberma = background(
+    img = load_image("obama.png"),
+    world_pos = vector(10,0),
+    world_size = 10,
+    distance = 1.5
 )
 
-wall2 = stage(
-    img = bricks,
-    world_pos = vector(8,12), #8,12
-    world_size = vector(2,35),
-    zindex = 10000
+cassy = world_object(
+    img = load_image("cassie_walk_1.png"),
+    world_pos = vector(12,4),
+    world_size = 4,
+    zindex = 100
 )
+
+anima = animation(
+    [load_image("cassie_walk_1.png"),
+    load_image("cassie_walk_2.png"),
+    load_image("cassie_walk_3.png"),
+    load_image("cassie_walk_4.png"),
+    load_image("cassie_walk_5.png"),
+    load_image("cassie_walk_6.png"),
+    load_image("cassie_walk_7.png"),
+    load_image("cassie_walk_8.png")],
+    duration=0.2,
+    target=cassy
+)
+anima.play()
+
+print(oberma.world_size)
 
 # Generate player
 player_hitboxes = [hitbox(scale = vector(0.58,0.9),)]
@@ -494,12 +556,14 @@ player = player_class(
     hitboxes=player_hitboxes,
     img=load_image("toadsworth.png"),
     jump_height=1.5,
-    world_pos = vector(5,8),
+    world_pos = vector(15,8),
     world_size = 1,
     speed = 5,
     acceleration=20, #CURRENTLY, ONLY ACCELERATION DECIDES TURN AROUND TIME. THIS IS TEMPORARY; MUST ADD INTO ACCOUNT DIFFERENCE BETWEEN AIR AND GROUND (FRICTION)
     zindex = 500
 )
+
+print(player.world_size)
 
 window.push_handlers(player)
 
@@ -511,12 +575,16 @@ window.push_handlers(player)
 class viewport_class(object):
     def __init__(self, position, aspect_ratio, height_meters):
         self.__dict__["tweens"] = []
-        self.position = position
+        self.__dict__["position"] = position
         self.aspect_ratio = aspect_ratio
         self.size_meters = vector(aspect_ratio*height_meters,height_meters)
     
     def __setattr__(self, key, value, tweened=False):
         check_tweens(self,key,tweened)
+        if key == "position":
+            delta = value - self.position
+            for i in backgrounds:
+                i.world_pos += delta/i.distance
         self.__dict__[key] = value
 
 
@@ -557,10 +625,10 @@ def window_map():
         global in_air
         if player.world_pos.x > viewport.position.x + 2/3*viewport.size_meters.x:
             destination_x = player.world_pos.x - 2/3*viewport.size_meters.x
-            viewport.position.x = destination_x
+            viewport.position = vector(destination_x,viewport.position.y)
         elif player.world_pos.x < viewport.position.x + 1/3*viewport.size_meters.x:
             destination_x = player.world_pos.x - 1/3*viewport.size_meters.x
-            viewport.position.x = destination_x
+            viewport.position = vector(destination_x,viewport.position.y)
         if player.movement_restricted('down') and in_air:
             in_air = False
             destination_y = player.world_pos.y - 1/6*viewport.size_meters.y
@@ -618,6 +686,8 @@ def on_resize(width,height):
 #region Event Cycle------------------------------------------------------------------------------------------------------------------------------------------
 def central_clock(dt):
     for i in tween_clocks:
+        i.tick()
+    for i in anim_clocks:
         i.tick()
     for i in physical_objects:
         if not i.anchored:
