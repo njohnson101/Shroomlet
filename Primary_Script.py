@@ -110,26 +110,36 @@ anim_clocks = []
 def anim_step(dt, self):
     self.timer += dt
     change = False
-    while self.timer-self.last_change >= self.frames[self.current_frame]["duration"]:
+    while self.timer-self.last_change >= self.track.frames[self.current_frame]["duration"]:
         change = True
-        self.last_change += self.frames[self.current_frame]["duration"]
+        self.last_change += self.track.frames[self.current_frame]["duration"]
         self.current_frame += 1
-        print("Frame "+str(self.current_frame))
-        if self.current_frame == len(self.frames):
+        if self.current_frame == len(self.track.frames):
             self.current_frame = 0
     if change:
-        print("There has been a change")
-        self.target.img = self.frames[self.current_frame]["image"]
+        self.target.image = self.track.frames[self.current_frame]["image"]
+
+class frame_sequence(object):
+    def __init__(self, frames, duration = None):
+        self.duration = duration
+        self.frames = frames
+
+    def __setattr__(self, key, value):
+        if key == "frames":
+            tofu = []
+            if self.duration != None:
+                for i in value:
+                    tofu.append({"image":i,"duration":self.duration})
+            else:
+                tofu = value
+            self.__dict__["frames"] = tofu
+        else:
+            self.__dict__[key] = value
 
 class animation(object):
-    def __init__(self, frames, target, duration=None, loop=True):
-        tofu = []
-        if duration != None:
-            for i in frames:
-                tofu.append({"image":i,"duration":duration})
-        else:
-            tofu = frames
-        self.frames = tofu
+    def __init__(self, track, target, loop=True):
+        self.track = track
+        self.playing = False
         self.timer = 0
         self.last_change = 0
         self.current_frame = 0
@@ -138,25 +148,33 @@ class animation(object):
         self.clock = None
 
     def play(self):
-        self.clock = clock.Clock()
-        self.clock.schedule(anim_step, self)
-        anim_clocks.append(self.clock)
+        if not self.playing:
+            self.playing = True
+            self.clock = clock.Clock()
+            self.clock.schedule(anim_step, self)
+            anim_clocks.append(self.clock)
 
     def stop(self):
+        self.playing = False
         self.clock.unschedule(anim_step)
         anim_clocks.remove(self.clock)
         del self.clock
 
-class world_object(pyglet.sprite.Sprite):
+    def reset(self):
+        self.timer = 0
+        self.last_change = 0
+        self.current_frame = 0
+
+class world_object(object):
     def __init__(self, world_pos = vector(0,0), world_size=0, zindex=1, supered=False, *args, **kwargs):
         self.__dict__["tweens"] = []
-        super().__init__(x=0,y=0,*args,**kwargs)
+        self.__dict__["sprite"] = pyglet.sprite.Sprite(x=0,y=0,*args,**kwargs)
+        self.__dict__["zindex"] = zindex
         self.__dict__["world_pos"] = world_pos
         if supered:
             self.__dict__["world_size"] = world_size
         else:
             self.world_size = world_size
-        self.zindex = zindex
         objects.append(self)
 
     def __setattr__(self, key, value, tweened=False,supered=False):
@@ -167,13 +185,34 @@ class world_object(pyglet.sprite.Sprite):
                 self.__dict__["world_size"] = vector(self.image.width/self.image.height*value, value)
             else:
                 self.__dict__["world_size"] = value
+        elif key == "image":
+            sx = self.sprite.scale_x
+            sy = self.sprite.scale_y
+            spr = pyglet.sprite.Sprite(img=value,x=self.sprite.x,y=self.sprite.y)
+            spr.scale_x = sx
+            spr.scale_y = sy
+            self.sprite = spr
+
+        elif key in self.__dict__:
+            self.__dict__[key] = value
         else:
-            super().__setattr__(key, value)
+            self.sprite.__setattr__(key,value)
+    
+    def __getattr__(self, key):
+        if key == "image":
+            return self.sprite.image
+        elif key == "width":
+            return self.sprite.width
+        elif key == "height":
+            return self.sprite.height
+        else:
+            return self.sprite.__dict__["_"+key]
+            
 
 class background(world_object):
     def __init__(self, distance = 2,*args, **kwargs):
         super().__init__(supered=True,*args,**kwargs)
-        self.distance = distance
+        self.__dict__["distance"] = distance
         self.world_size = self.world_size
         backgrounds.append(self)
 
@@ -182,17 +221,20 @@ class physical_object(world_object):
     def __init__(self, hitboxes = None, velocity = vector(0,0), gravitational_pull = gravitational_acceleration, terminal_pull = terminal_velocity, anchored = True, supered=False, *args, **kwargs):
         super().__init__(supered=True,*args,**kwargs)
         if hitboxes == None:
-            self.hitboxes = [hitbox()]
+            self.__dict__["hitboxes"] = [hitbox()]
         else:
-            self.hitboxes = hitboxes
+            self.__dict__["hitboxes"] = hitboxes
         for i in self.hitboxes:
             i.color = (0,0,255)
             i.parent = self
-        self.world_size = self.world_size
-        self.gravitational_pull = gravitational_pull
-        self.terminal_pull = terminal_pull
-        self.velocity = velocity
-        self.anchored = anchored
+        if supered:
+            self.__dict__["world_size"] = self.world_size
+        else:
+            self.world_size = self.world_size
+        self.__dict__["gravitational_pull"] = gravitational_pull
+        self.__dict__["terminal_pull"] = terminal_pull
+        self.__dict__["velocity"] = velocity
+        self.__dict__["anchored"] = anchored
         if not supered:
             physical_objects.append(self)
 
@@ -248,26 +290,56 @@ class stage(physical_object):
 
     def __init__(self, *args, **kwargs):
         super().__init__(supered=True,*args,**kwargs)
+        self.world_size = self.world_size
         for i in self.hitboxes:
             i.color=(139,69,19)
         stage_objects.append(self)
         physical_objects.append(self)
+
+cassie_left_walk = frame_sequence(frames = [load_image("cassie_walk_1.png"),
+    load_image("cassie_walk_2.png"),
+    load_image("cassie_walk_3.png"),
+    load_image("cassie_walk_4.png"),
+    load_image("cassie_walk_5.png"),
+    load_image("cassie_walk_6.png"),
+    load_image("cassie_walk_7.png"),
+    load_image("cassie_walk_8.png")],
+    duration = 0.2)
+
+cassie_right_walk = frame_sequence(frames = [load_image("cassie_walk_1r.png"),
+    load_image("cassie_walk_2r.png"),
+    load_image("cassie_walk_3r.png"),
+    load_image("cassie_walk_4r.png"),
+    load_image("cassie_walk_5r.png"),
+    load_image("cassie_walk_6r.png"),
+    load_image("cassie_walk_7r.png"),
+    load_image("cassie_walk_8r.png")],
+    duration = 0.2)
+
+cassie_idle = load_image("toadsworth.png")
 
 class player_class(physical_object):
     def __init__(self, speed=10, acceleration=5, jump_height=0, life = 100, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for i in self.hitboxes:
             i.color = (0,255,0)
-        self.keys = dict(left=False, right=False, space=False)
-        self.dominant_key = None
-        self.acceleration = acceleration
-        self.speed = speed # max velocity
-        self.jump_height = jump_height
-        self.life = life
-        self.collisions = []
-        self.right_clung = False
-        self.left_clung = False
-        self.anchored = False
+        self.__dict__["keys"] = dict(left=False, right=False, space=False)
+        self.__dict__["facing"] = True  #True if facing right, false if facing left
+        self.__dict__["walking"] = False
+        self.__dict__["walk"] = animation(
+                                    cassie_left_walk,
+                                    target=self
+                                )
+        self.__dict__["dominant_key"] = None
+        self.__dict__["acceleration"] = acceleration
+        self.__dict__["speed"] = speed # max velocity
+        self.__dict__["jump_height"] = jump_height
+        self.__dict__["life"] = life
+        self.__dict__["collisions"] = []
+        self.__dict__["right_clung"] = False
+        self.__dict__["left_clung"] = False
+        self.__dict__["anchored"] = False
+        self.world_size = self.world_size
     
     def on_key_press(self, button, modifiers):
         if button == key.LEFT:
@@ -370,6 +442,14 @@ class player_class(physical_object):
     def standard_movement(self, dt): # WALL JUMPS NEED TO ONLY WORK WITH STAGE OBJECTS
         if self.keys['left']:
             if not self.movement_restricted("left") and self.dominant_key != "right":
+                if self.facing:
+                    print("face to the left")
+                    self.facing = False
+                    self.walk.track = cassie_left_walk
+                if not self.walking:
+                    print("face to the right")
+                    self.walking = True
+                    self.walk.play()
                 if self.velocity.x > -self.speed:
                     self.velocity.x -= self.acceleration*dt
                     if self.velocity.x < -self.speed:
@@ -382,6 +462,14 @@ class player_class(physical_object):
                 self.velocity.y = -2
         elif self.keys['right']:
             if not self.movement_restricted("right") and self.dominant_key != "left":
+                if not self.facing:
+                    self.facing = True
+                    self.walk.track = cassie_right_walk
+                    print("face to the right")
+                if not self.walking:
+                    print("walk to the right")
+                    self.walking = True
+                    self.walk.play()
                 if self.velocity.x < self.speed:
                     self.velocity.x += self.acceleration*dt
                     if self.velocity.x > self.speed:
@@ -400,6 +488,12 @@ class player_class(physical_object):
                 self.velocity.x -= self.acceleration*dt
                 if self.velocity.x < 0:
                     self.velocity.x = 0
+            if self.walking:
+                self.walking = False
+                self.walk.stop()
+                self.image = cassie_idle
+                self.walk.reset()
+
         if self.keys['space']:
             if not self.movement_restricted("up"):
                 if self.movement_restricted('down'):
@@ -519,35 +613,28 @@ dirt = stage(
     zindex = 100
 )
 
-oberma = background(
+""" bricks_image = load_image('bricks.webp')
+
+bricks = stage(
+    img = bricks_image,
+    world_pos = vector(10,10),
+    world_size = vector(1,20),
+    zindex = 400
+)
+
+bricks2 = stage(
+    img = bricks_image,
+    world_pos = vector(13,10),
+    world_size = vector(1,20),
+    zindex = 400
+) """
+
+""" oberma = background(
     img = load_image("obama.png"),
     world_pos = vector(10,0),
     world_size = 10,
     distance = 1.5
-)
-
-cassy = world_object(
-    img = load_image("cassie_walk_1.png"),
-    world_pos = vector(12,4),
-    world_size = 4,
-    zindex = 100
-)
-
-anima = animation(
-    [load_image("cassie_walk_1.png"),
-    load_image("cassie_walk_2.png"),
-    load_image("cassie_walk_3.png"),
-    load_image("cassie_walk_4.png"),
-    load_image("cassie_walk_5.png"),
-    load_image("cassie_walk_6.png"),
-    load_image("cassie_walk_7.png"),
-    load_image("cassie_walk_8.png")],
-    duration=0.2,
-    target=cassy
-)
-anima.play()
-
-print(oberma.world_size)
+) """
 
 # Generate player
 player_hitboxes = [hitbox(scale = vector(0.58,0.9),)]
@@ -556,14 +643,12 @@ player = player_class(
     hitboxes=player_hitboxes,
     img=load_image("toadsworth.png"),
     jump_height=1.5,
-    world_pos = vector(15,8),
+    world_pos = vector(12,8),
     world_size = 1,
     speed = 5,
     acceleration=20, #CURRENTLY, ONLY ACCELERATION DECIDES TURN AROUND TIME. THIS IS TEMPORARY; MUST ADD INTO ACCOUNT DIFFERENCE BETWEEN AIR AND GROUND (FRICTION)
     zindex = 500
 )
-
-print(player.world_size)
 
 window.push_handlers(player)
 
@@ -711,7 +796,7 @@ def on_draw():
     background.draw()
     in_frame_objects.sort(key=sort_z_indices)
     for i in in_frame_objects:
-        i.draw()
+        i.sprite.draw()
     if draw_hitboxes:
         hitboxes.draw()
     left_shade.draw()

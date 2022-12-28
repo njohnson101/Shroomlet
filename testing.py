@@ -1,4 +1,3 @@
-from tkinter import dialog
 import pyglet
 clock = pyglet.clock
 import math
