@@ -4,6 +4,8 @@ import math
 mouse = pyglet.window.mouse
 clock = pyglet.clock
 
+## the boys were here heee hee haw
+
 hitboxes = pyglet.graphics.Batch()
 
 window = pyglet.window.Window(fullscreen=True)
@@ -21,13 +23,7 @@ def check_tweens(self,key,tweened):
             if i.attribute == key:
                 i.stop()
 
-
-physical_objects = []
-stage_objects = []
-backgrounds = []
-objects = []
-
-#endregion----------------------------------------------------------------------------------------------------------------------------------------------------
+#endregion ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 #  Variables----------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -41,6 +37,47 @@ air_friction = 5
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+#region Initialize Areas--------------------------------------------------------------------------------------------------------------------------------------
+class domain(object):
+    def __init__(self):
+        self.objects = []
+        self.physical_objects = []
+        self.backgrounds = []
+
+    def remove(self,target):
+        if target in self.objects:
+            self.objects.remove(target)
+        if target in self.physical_objects:
+            self.physical_objects.remove(target)
+        if target in self.backgrounds:
+            self.backgrounds.remove(target)
+    
+    def append(self,target):
+        cname = target.__class__.__name__
+        if cname == "stage" or cname == "physical_object" or cname == "player_class":
+            self.objects.append(target)
+            self.physical_objects.append(target)
+        elif cname == "background":
+            self.objects.append(target)
+            self.backgrounds.append(target)
+        elif cname == "world_object":
+            self.objects.append(target)
+    
+    def transfer(self,target,new_area):
+        self.remove(target)
+        new_area.append(target)
+
+    def __str__(self):
+        return "objects: "+str(self.objects)+"\n"+"physical objects: "+str(self.physical_objects)+"\n"+"backgrounds: "+str(self.backgrounds)
+
+
+
+forest_1 = domain()
+forest_2 = domain()
+
+area = None
+editing_area = None
+#endregion -----------------------------------------------------------------------------------------------------------------------------------------------------
 
 #region Generate----------------------------------------------------------------------------------------------------------------------------------------------
 import pyglet
@@ -154,7 +191,7 @@ class animation(object):
             self.clock.schedule(anim_step, self)
             anim_clocks.append(self.clock)
 
-    def stop(self):
+    def pause(self):
         self.playing = False
         self.clock.unschedule(anim_step)
         anim_clocks.remove(self.clock)
@@ -164,6 +201,10 @@ class animation(object):
         self.timer = 0
         self.last_change = 0
         self.current_frame = 0
+    
+    def stop(self):
+        self.pause()
+        self.reset()
 
 class world_object(object):
     def __init__(self, world_pos = vector(0,0), world_size=0, zindex=1, supered=False, *args, **kwargs):
@@ -175,7 +216,7 @@ class world_object(object):
             self.__dict__["world_size"] = world_size
         else:
             self.world_size = world_size
-        objects.append(self)
+        editing_area.objects.append(self)
 
     def __setattr__(self, key, value, tweened=False,supered=False):
         if not supered:
@@ -214,7 +255,7 @@ class background(world_object):
         super().__init__(supered=True,*args,**kwargs)
         self.__dict__["distance"] = distance
         self.world_size = self.world_size
-        backgrounds.append(self)
+        editing_area.backgrounds.append(self)
 
 class physical_object(world_object):
      
@@ -236,7 +277,7 @@ class physical_object(world_object):
         self.__dict__["velocity"] = velocity
         self.__dict__["anchored"] = anchored
         if not supered:
-            physical_objects.append(self)
+            editing_area.physical_objects.append(self)
 
     def update_hitboxes(self):
         for i in self.hitboxes:
@@ -293,8 +334,7 @@ class stage(physical_object):
         self.world_size = self.world_size
         for i in self.hitboxes:
             i.color=(139,69,19)
-        stage_objects.append(self)
-        physical_objects.append(self)
+        editing_area.physical_objects.append(self)
 
 cassie_left_walk = frame_sequence(frames = [load_image("cassie_walk_1.png"),
     load_image("cassie_walk_2.png"),
@@ -443,11 +483,9 @@ class player_class(physical_object):
         if self.keys['left']:
             if not self.movement_restricted("left") and self.dominant_key != "right":
                 if self.facing:
-                    print("face to the left")
                     self.facing = False
                     self.walk.track = cassie_left_walk
                 if not self.walking:
-                    print("face to the right")
                     self.walking = True
                     self.walk.play()
                 if self.velocity.x > -self.speed:
@@ -455,9 +493,7 @@ class player_class(physical_object):
                     if self.velocity.x < -self.speed:
                         self.velocity.x = -self.speed
             elif self.movement_restricted('left') and not self.left_clung and self.velocity.y<=-2:
-                print(self.velocity.y)
                 self.left_clung = True
-                print("cling on the left")
                 self.gravitational_pull = 0
                 self.velocity.y = -2
         elif self.keys['right']:
@@ -465,9 +501,7 @@ class player_class(physical_object):
                 if not self.facing:
                     self.facing = True
                     self.walk.track = cassie_right_walk
-                    print("face to the right")
                 if not self.walking:
-                    print("walk to the right")
                     self.walking = True
                     self.walk.play()
                 if self.velocity.x < self.speed:
@@ -476,7 +510,6 @@ class player_class(physical_object):
                         self.velocity.x = self.speed
             elif self.movement_restricted('right') and not self.right_clung and self.velocity.y<=-2:
                 self.right_clung = True
-                print("cling on the right")
                 self.gravitational_pull = 0
                 self.velocity.y = -2
         else:
@@ -492,7 +525,6 @@ class player_class(physical_object):
                 self.walking = False
                 self.walk.stop()
                 self.image = cassie_idle
-                self.walk.reset()
 
         if self.keys['space']:
             if not self.movement_restricted("up"):
@@ -598,9 +630,14 @@ class tween(object):
         tween_clocks.remove(self.clock)
         del self.clock
         del self
-#endregion----------------------------------------------------------------------------------------------------------------------------------------------------
+#endregion ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 #region WORKSPACE---------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+editing_area = forest_1
 
 # Load and format images
 dirt_image = load_image('dirt.png')
@@ -609,11 +646,25 @@ dirt_image = load_image('dirt.png')
 dirt = stage(
     img = dirt_image,
     world_pos = vector(10,0.5),
+    world_size = 10,
+    zindex = 100
+)
+
+
+
+
+
+editing_area = forest_2
+
+dirt = stage(
+    img = dirt_image,
+    world_pos = vector(10,0.5),
     world_size = 3,
     zindex = 100
 )
 
-""" bricks_image = load_image('bricks.webp')
+
+bricks_image = load_image('bricks.webp')
 
 bricks = stage(
     img = bricks_image,
@@ -627,14 +678,30 @@ bricks2 = stage(
     world_pos = vector(13,10),
     world_size = vector(1,20),
     zindex = 400
-) """
+)
 
-""" oberma = background(
+oberma = background(
     img = load_image("obama.png"),
     world_pos = vector(10,0),
     world_size = 10,
     distance = 1.5
-) """
+)
+
+
+
+
+
+firefly_cottage = domain()
+editing_area = firefly_cottage
+
+floor = physical_object(
+    img = load_image("woodFloor.PNG")
+)
+
+
+
+
+
 
 # Generate player
 player_hitboxes = [hitbox(scale = vector(0.58,0.9),)]
@@ -650,10 +717,13 @@ player = player_class(
     zindex = 500
 )
 
+forest_1.append(player)
+
 window.push_handlers(player)
 
-#endregion---------------------------------------------------------------------------------------------------------------------------------------------------
+area = forest_2
 
+#endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
 
 #region Window Mapping---------------------------------------------------------------------------------------------------------------------------------------
 
@@ -668,7 +738,7 @@ class viewport_class(object):
         check_tweens(self,key,tweened)
         if key == "position":
             delta = value - self.position
-            for i in backgrounds:
+            for i in area.backgrounds:
                 i.world_pos += delta/i.distance
         self.__dict__[key] = value
 
@@ -731,7 +801,7 @@ def window_map():
             in_air = True
         local_in_frame_objects = []
         viewport.size_meters.x = viewport.size_meters.y*viewport.aspect_ratio
-        for i in objects:
+        for i in area.objects:
             upper_x, lower_x = i.world_pos.x + i.world_size.x/2, i.world_pos.x - i.world_size.x/2
             upper_y, lower_y = i.world_pos.y + i.world_size.y/2, i.world_pos.y - i.world_size.y/2
             if (((upper_x >= viewport.position.x and upper_x <= viewport.position.x + viewport.size_meters.x) or (lower_x >= viewport.position.x and lower_x <= viewport.position.x + viewport.size_meters.x)) or (lower_x < viewport.position.x and upper_x > viewport.position.x + viewport.size_meters.x)) and (((upper_y >= viewport.position.y and upper_y <= viewport.position.y + viewport.size_meters.y) or (lower_y >= viewport.position.y and lower_y <= viewport.position.y + viewport.size_meters.y)) or (lower_y < viewport.position.y and upper_y > viewport.position.y + viewport.size_meters.y)):
@@ -765,8 +835,7 @@ def on_resize(width,height):
     right_shade.width = blackout
     right_shade.x = width-blackout
 
-#endregion---------------------------------------------------------------------------------------------------------------------------------------------------
-
+#endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
 
 #region Event Cycle------------------------------------------------------------------------------------------------------------------------------------------
 def central_clock(dt):
@@ -774,11 +843,11 @@ def central_clock(dt):
         i.tick()
     for i in anim_clocks:
         i.tick()
-    for i in physical_objects:
+    for i in area.physical_objects:
         if not i.anchored:
             i.update(dt)
     player.standard_movement(dt)
-    player.check_collisions(physical_objects,dt)
+    player.check_collisions(area.physical_objects,dt)
     window_map()
 
 clock.schedule_interval(central_clock, 1/120.0)
@@ -802,6 +871,6 @@ def on_draw():
     left_shade.draw()
     right_shade.draw()
 
-#endregion---------------------------------------------------------------------------------------------------------------------------------------------------
+#endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
 
 pyglet.app.run()
