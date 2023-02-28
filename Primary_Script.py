@@ -11,8 +11,11 @@ hitboxes = pyglet.graphics.Batch()
 window = pyglet.window.Window(fullscreen=True)
 window.set_caption('Skyrim')
 
+pyglet.resource.path = ['.','NolanSuckDuck/Assets']
+pyglet.resource.reindex()
+
 def load_image(image):
-    img = pyglet.image.load(image)
+    img = pyglet.resource.image(image)
     img.anchor_x = img.width//2
     img.anchor_y = img.height//2
     return img
@@ -39,10 +42,16 @@ air_friction = 5
 
 #region Initialize Areas--------------------------------------------------------------------------------------------------------------------------------------
 class domain(object):
-    def __init__(self):
+    def __init__(self,auto_pan_x = True,auto_pan_y = True,upper_bound_x = math.inf,lower_bound_x = -math.inf,upper_bound_y = math.inf,lower_bound_y = -math.inf):
         self.objects = []
         self.physical_objects = []
         self.backgrounds = []
+        self.auto_pan_x = auto_pan_x
+        self.auto_pan_y = auto_pan_y
+        self.upper_bound_x = upper_bound_x
+        self.upper_bound_y = upper_bound_y
+        self.lower_bound_x = lower_bound_x
+        self.lower_bound_y = lower_bound_y
 
     def remove(self,target):
         if target in self.objects:
@@ -57,7 +66,7 @@ class domain(object):
         if cname == "stage" or cname == "physical_object" or cname == "player_class":
             self.objects.append(target)
             self.physical_objects.append(target)
-        elif cname == "background":
+        elif cname == "background_object":
             self.objects.append(target)
             self.backgrounds.append(target)
         elif cname == "world_object":
@@ -72,10 +81,7 @@ class domain(object):
 
 
 
-forest_1 = domain()
-forest_2 = domain()
-
-area = None
+area = domain()
 editing_area = None
 #endregion -----------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -250,7 +256,7 @@ class world_object(object):
             return self.sprite.__dict__["_"+key]
             
 
-class background(world_object):
+class background_object(world_object):
     def __init__(self, distance = 2,*args, **kwargs):
         super().__init__(supered=True,*args,**kwargs)
         self.__dict__["distance"] = distance
@@ -356,7 +362,8 @@ cassie_right_walk = frame_sequence(frames = [load_image("cassie_walk_1r.png"),
     load_image("cassie_walk_8r.png")],
     duration = 0.2)
 
-cassie_idle = load_image("toadsworth.png")
+cassie_idle_left = load_image("cassie_walk_4.png")
+cassie_idle_right = load_image("cassie_walk_4r.png")
 
 class player_class(physical_object):
     def __init__(self, speed=10, acceleration=5, jump_height=0, life = 100, *args, **kwargs):
@@ -524,7 +531,10 @@ class player_class(physical_object):
             if self.walking:
                 self.walking = False
                 self.walk.stop()
-                self.image = cassie_idle
+                if self.facing:
+                    self.image = cassie_idle_right
+                else:
+                    self.image = cassie_idle_left
 
         if self.keys['space']:
             if not self.movement_restricted("up"):
@@ -632,102 +642,9 @@ class tween(object):
         del self
 #endregion ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-#region WORKSPACE---------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-
-editing_area = forest_1
-
-# Load and format images
-dirt_image = load_image('dirt.png')
-
-# Generate Dirt
-dirt = stage(
-    img = dirt_image,
-    world_pos = vector(10,0.5),
-    world_size = 10,
-    zindex = 100
-)
-
-
-
-
-
-editing_area = forest_2
-
-dirt = stage(
-    img = dirt_image,
-    world_pos = vector(10,0.5),
-    world_size = 3,
-    zindex = 100
-)
-
-
-bricks_image = load_image('bricks.webp')
-
-bricks = stage(
-    img = bricks_image,
-    world_pos = vector(10,10),
-    world_size = vector(1,20),
-    zindex = 400
-)
-
-bricks2 = stage(
-    img = bricks_image,
-    world_pos = vector(13,10),
-    world_size = vector(1,20),
-    zindex = 400
-)
-
-oberma = background(
-    img = load_image("obama.png"),
-    world_pos = vector(10,0),
-    world_size = 10,
-    distance = 1.5
-)
-
-
-
-
-
-firefly_cottage = domain()
-editing_area = firefly_cottage
-
-floor = physical_object(
-    img = load_image("woodFloor.PNG")
-)
-
-
-
-
-
-
-# Generate player
-player_hitboxes = [hitbox(scale = vector(0.58,0.9),)]
-player_hitboxes[0].opacity = 128
-player = player_class(
-    hitboxes=player_hitboxes,
-    img=load_image("toadsworth.png"),
-    jump_height=1.5,
-    world_pos = vector(12,8),
-    world_size = 1,
-    speed = 5,
-    acceleration=20, #CURRENTLY, ONLY ACCELERATION DECIDES TURN AROUND TIME. THIS IS TEMPORARY; MUST ADD INTO ACCOUNT DIFFERENCE BETWEEN AIR AND GROUND (FRICTION)
-    zindex = 500
-)
-
-forest_1.append(player)
-
-window.push_handlers(player)
-
-area = forest_2
-
-#endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
-
 #region Window Mapping---------------------------------------------------------------------------------------------------------------------------------------
 
-class viewport_class(object):
+class viewport_class(object): #position from bottom left of screen
     def __init__(self, position, aspect_ratio, height_meters):
         self.__dict__["tweens"] = []
         self.__dict__["position"] = position
@@ -778,27 +695,39 @@ def position_hitboxes(i,width,height):
 def window_map():
     if window.height <= window.width:
         global in_air
-        if player.world_pos.x > viewport.position.x + 2/3*viewport.size_meters.x:
-            destination_x = player.world_pos.x - 2/3*viewport.size_meters.x
-            viewport.position = vector(destination_x,viewport.position.y)
-        elif player.world_pos.x < viewport.position.x + 1/3*viewport.size_meters.x:
-            destination_x = player.world_pos.x - 1/3*viewport.size_meters.x
-            viewport.position = vector(destination_x,viewport.position.y)
-        if player.movement_restricted('down') and in_air:
-            in_air = False
-            destination_y = player.world_pos.y - 1/6*viewport.size_meters.y
-            if destination_y != viewport.position.y:
-                viewport_tween = tween(
-                object=viewport,
-                attribute="position.y",
-                target=destination_y,
-                duration=(abs(destination_y-viewport.position.y))/1,
-                easing_style="Quadratic",
-                easing_direction="Out"
-                )
-                viewport_tween.play()
-        elif not player.movement_restricted('down') and not in_air:
-            in_air = True
+        if area.auto_pan_x:
+            if player.world_pos.x > viewport.position.x + 2/3*viewport.size_meters.x:
+                destination_x = player.world_pos.x - 2/3*viewport.size_meters.x
+                if destination_x>area.upper_bound_x-viewport.size_meters.x:
+                    print("reached max x value")
+                    viewport.position = vector(area.upper_bound_x-viewport.size_meters.x,viewport.position.y)
+                else:
+                    print("updating to destination")
+                    viewport.position = vector(destination_x,viewport.position.y)
+            elif player.world_pos.x < viewport.position.x + 1/3*viewport.size_meters.x:
+                destination_x = player.world_pos.x - 1/3*viewport.size_meters.x
+                if destination_x<area.lower_bound_x:
+                    print("reached min x value")
+                    viewport.position = vector(area.lower_bound_x,viewport.position.y)
+                else:
+                    print("updating to destination")
+                    viewport.position = vector(destination_x,viewport.position.y)
+        if area.auto_pan_y:
+            if player.movement_restricted('down') and in_air:
+                in_air = False
+                destination_y = player.world_pos.y - 1/6*viewport.size_meters.y
+                if destination_y != viewport.position.y:
+                    viewport_tween = tween(
+                    object=viewport,
+                    attribute="position.y",
+                    target=destination_y,
+                    duration=(abs(destination_y-viewport.position.y))/1,
+                    easing_style="Quadratic",
+                    easing_direction="Out"
+                    )
+                    viewport_tween.play()
+            elif not player.movement_restricted('down') and not in_air:
+                in_air = True
         local_in_frame_objects = []
         viewport.size_meters.x = viewport.size_meters.y*viewport.aspect_ratio
         for i in area.objects:
@@ -834,6 +763,178 @@ def on_resize(width,height):
     left_shade.width = blackout
     right_shade.width = blackout
     right_shade.x = width-blackout
+
+#endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
+
+#region WORKSPACE---------------------------------------------------------------------------------------------------------------------------------------------
+
+
+forest_1 = domain()
+editing_area = forest_1
+
+# Load and format images
+dirt_image = load_image('dirt.png')
+
+# Generate Dirt
+dirt = stage(
+    img = dirt_image,
+    world_pos = vector(10,0.5),
+    world_size = 10,
+    zindex = 100
+)
+
+
+
+
+
+forest_2 = domain()
+editing_area = forest_2
+
+dirt = stage(
+    img = dirt_image,
+    world_pos = vector(10,0.5),
+    world_size = 3,
+    zindex = 100
+)
+
+
+bricks_image = load_image('bricks.webp')
+
+bricks = stage(
+    img = bricks_image,
+    world_pos = vector(10,10),
+    world_size = vector(1,20),
+    zindex = 400
+)
+
+bricks2 = stage(
+    img = bricks_image,
+    world_pos = vector(13,10),
+    world_size = vector(1,20),
+    zindex = 400
+)
+
+oberma = background_object(
+    img = load_image("obama.png"),
+    world_pos = vector(10,0),
+    world_size = 10,
+    distance = 1.5
+)
+
+
+
+
+
+
+firefly_cottage = domain(auto_pan_y = False,upper_bound_x = 2.07,lower_bound_x = -2.95)
+print(viewport.position)
+viewport.position = vector(-100,0)
+print(viewport.position)
+viewport.size_meters = vector(viewport.aspect_ratio*3,3)
+
+editing_area = firefly_cottage
+
+floor_image = load_image("WoodFloor.PNG")
+
+wall = world_object(
+    img = load_image("WindowWall.PNG"),
+    world_pos = vector(-0.5,1.65),
+    world_size = 5.6,
+    zindex = 10
+)
+
+def jamaica():
+    return {hitbox(scale=vector(1,0.5),offset=vector(0,-0.25))}
+
+floor = physical_object(
+    img = floor_image,
+    world_pos = vector(0,0.15),
+    world_size = 0.3,
+    hitboxes=jamaica(),
+    zindex = 50
+)
+floor_again = physical_object(
+    img = floor_image,
+    world_pos = vector(4,0.15),
+    world_size = 0.3,
+    hitboxes=jamaica(),
+    zindex = 50
+)
+floor_but_again = physical_object(
+    img = floor_image,
+    world_pos = vector(-4,0.15),
+    world_size = 0.3,
+    hitboxes=jamaica(),
+    zindex = 50
+)
+floor_redux = physical_object(
+    img = floor_image,
+    world_pos = vector(-4,0.15),
+    world_size = 0.3,
+    hitboxes=jamaica(),
+    zindex = 50
+)
+
+bed = world_object(
+    img = load_image("Bed.PNG"),
+    world_pos = vector(1.2,0.5),
+    world_size = 0.7,
+    zindex = 100
+)
+stool = world_object(
+    img = load_image("Stool.PNG"),
+    world_pos = vector(1.75,0.3),
+    world_size = 0.5,
+    zindex = 200
+)
+lamp = world_object(
+    img = load_image("LightOff.PNG"),
+    world_pos = vector(1.75,0.75),
+    world_size = 0.5,
+    zindex = 300
+)
+picture_frames = world_object(
+    img = load_image("Frames.PNG"),
+    world_pos = vector(1.2,2),
+    world_size = 1.2,
+    zindex = 25
+)
+curtains = world_object(
+    img = load_image("Curtains.PNG"),
+    world_pos = vector(-1.72,2.05),
+    world_size = 1.3,
+    zindex = 25
+)
+
+
+print(firefly_cottage)
+
+
+
+
+
+
+
+
+# Generate player
+player_hitboxes = [hitbox(scale = vector(0.58,0.9),)]
+player_hitboxes[0].opacity = 128
+player = player_class(
+    hitboxes=player_hitboxes,
+    img=load_image("toadsworth.png"),
+    jump_height=1.5,
+    world_pos = vector(0,2),
+    world_size = 1,
+    speed = 5,
+    acceleration=20, #CURRENTLY, ONLY ACCELERATION DECIDES TURN AROUND TIME. THIS IS TEMPORARY; MUST ADD INTO ACCOUNT DIFFERENCE BETWEEN AIR AND GROUND (FRICTION)
+    zindex = 500
+)
+
+window.push_handlers(player)
+
+area = firefly_cottage
+player.speed = 2
+player.jump_height = 0
 
 #endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
 
