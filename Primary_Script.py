@@ -834,10 +834,10 @@ viewport.size_meters = vector(viewport.aspect_ratio*3,3)
 
 editing_area = firefly_cottage
 
-floor_image = load_image("WoodFloor.PNG")
+floor_image = load_image("WoodFloor.png")
 
 wall = world_object(
-    img = load_image("WindowWall.PNG"),
+    img = load_image("Bedroom.png"),
     world_pos = vector(-0.5,1.65),
     world_size = 5.6,
     zindex = 10
@@ -876,31 +876,31 @@ floor_redux = physical_object(
 )
 
 bed = world_object(
-    img = load_image("Bed.PNG"),
+    img = load_image("Bed.png"),
     world_pos = vector(1.2,0.5),
     world_size = 0.7,
     zindex = 100
 )
 stool = world_object(
-    img = load_image("Stool.PNG"),
+    img = load_image("Stool.png"),
     world_pos = vector(1.75,0.3),
     world_size = 0.5,
     zindex = 200
 )
 lamp = world_object(
-    img = load_image("LightOff.PNG"),
+    img = load_image("LampOff.png"),
     world_pos = vector(1.75,0.75),
     world_size = 0.5,
     zindex = 300
 )
 picture_frames = world_object(
-    img = load_image("Frames.PNG"),
+    img = load_image("Photos.png"),
     world_pos = vector(1.2,2),
     world_size = 1.2,
     zindex = 25
 )
 curtains = world_object(
-    img = load_image("Curtains.PNG"),
+    img = load_image("Curtains.png"),
     world_pos = vector(-1.72,2.05),
     world_size = 1.3,
     zindex = 25
