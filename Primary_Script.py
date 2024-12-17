@@ -1,10 +1,8 @@
-#region Idk---------------------------------------------------------------------------------------------------------------------------------------------------
+#region Setup---------------------------------------------------------------------------------------------------------------------------------------------------
 import pyglet
 import math
 mouse = pyglet.window.mouse
 clock = pyglet.clock
-
-## the boys were here heee hee haw
 
 hitboxes = pyglet.graphics.Batch()
 
@@ -42,7 +40,7 @@ air_friction = 5
 
 #region Initialize Areas--------------------------------------------------------------------------------------------------------------------------------------
 class domain(object):
-    def __init__(self,auto_pan_x = False,auto_pan_y = False,upper_bound_x = math.inf,lower_bound_x = -math.inf,upper_bound_y = math.inf,lower_bound_y = -math.inf):
+    def __init__(self,auto_pan_x = True,auto_pan_y = True,upper_bound_x = math.inf,lower_bound_x = -math.inf,upper_bound_y = math.inf,lower_bound_y = -math.inf):
         self.objects = []
         self.physical_objects = []
         self.backgrounds = []
@@ -254,7 +252,11 @@ class world_object(object):
             return self.sprite.height
         else:
             return self.sprite.__dict__["_"+key]
-            
+        
+    def transfer_domain(self, current, target):
+        current.remove(self)
+        target.append(self)
+
 
 class background_object(world_object):
     def __init__(self, distance = 2,*args, **kwargs):
@@ -776,18 +778,20 @@ editing_area = plain
 dirt_image = load_image('dirt.png')
 
 # Generate Dirt
-dirt = stage(
+dirt1 = stage(
     img = dirt_image,
     world_pos = vector(10,0.5),
-    world_size = 10,
+    world_size = 3,
     zindex = 100
 )
 
 
 
-
-
 playground = domain()
+print(viewport.position)
+viewport.position = vector(0,0)
+print(viewport.position)
+viewport.size_meters = vector(viewport.aspect_ratio*3,3)
 editing_area = playground
 
 dirt = stage(
@@ -802,14 +806,14 @@ bricks_image = load_image('bricks.webp')
 
 bricks = stage(
     img = bricks_image,
-    world_pos = vector(10,10),
+    world_pos = vector(10.2,10),
     world_size = vector(1,20),
     zindex = 400
 )
 
 bricks2 = stage(
     img = bricks_image,
-    world_pos = vector(13,10),
+    world_pos = vector(12.8,10),
     world_size = vector(1,20),
     zindex = 400
 )
@@ -921,9 +925,27 @@ player = player_class(
 
 window.push_handlers(player)
 
-area = plain
 player.speed = 2
 player.jump_height = 0.8
+area = firefly_cottage
+
+#Remove apostraphes to test out the playground:
+
+area = playground
+player.transfer_domain(firefly_cottage, playground)
+player.world_pos = vector(11.5,2)
+player.speed = 3
+viewport.size_meters = vector(viewport.aspect_ratio*5,5)
+
+
+#Remove apostraphes to test out the plain:
+'''
+area = plain
+player.transfer_domain(firefly_cottage, plain)
+player.world_pos = vector(11.5,2)
+player.speed = 3
+viewport.size_meters = vector(viewport.aspect_ratio*5,5)
+'''
 
 #endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
 
