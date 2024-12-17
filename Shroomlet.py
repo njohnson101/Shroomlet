@@ -920,13 +920,13 @@ player.jump_height = 0.8
 area = firefly_cottage
 
 #Remove apostraphes to test out the playground:
-
+'''
 area = playground
 player.transfer_domain(firefly_cottage, playground)
 player.world_pos = vector(11.5,2)
 player.speed = 3
 viewport.size_meters = vector(viewport.aspect_ratio*5,5)
-
+'''
 
 #Remove apostraphes to test out the plain:
 '''
