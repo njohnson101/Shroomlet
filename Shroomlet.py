@@ -1,5 +1,6 @@
 #region Setup---------------------------------------------------------------------------------------------------------------------------------------------------
 import pyglet
+print(pyglet)
 import math
 mouse = pyglet.window.mouse
 clock = pyglet.clock
@@ -9,7 +10,7 @@ hitboxes = pyglet.graphics.Batch()
 window = pyglet.window.Window(fullscreen=True)
 window.set_caption('Shroomlet')
 
-pyglet.resource.path = ['.','NolanSuckDuck/Assets']
+pyglet.resource.path = ['Assets']
 pyglet.resource.reindex()
 
 def load_image(image):
@@ -545,13 +546,13 @@ class player_class(physical_object):
                 elif self.left_clung:
                     self.left_clung = False
                     self.gravitational_pull = gravitational_acceleration
-                    self.velocity.x = self.speed
-                    self.velocity.y = 2*(-gravitational_acceleration*self.jump_height)**0.5
+                    self.velocity.x = 1.8*self.speed
+                    self.velocity.y = 2.5*(-gravitational_acceleration*self.jump_height)**0.5
                 elif self.right_clung:
                     self.right_clung = False
                     self.gravitational_pull = gravitational_acceleration
-                    self.velocity.x = -self.speed
-                    self.velocity.y = 2*(-gravitational_acceleration*self.jump_height)**0.5
+                    self.velocity.x = -1.8*self.speed
+                    self.velocity.y = 2.5*(-gravitational_acceleration*self.jump_height)**0.5
 
 #endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -701,18 +702,18 @@ def window_map():
             if player.world_pos.x > viewport.position.x + 2/3*viewport.size_meters.x:
                 destination_x = player.world_pos.x - 2/3*viewport.size_meters.x
                 if destination_x>area.upper_bound_x-viewport.size_meters.x:
-                    print("reached max x value")
+                    #print("reached max x value")
                     viewport.position = vector(area.upper_bound_x-viewport.size_meters.x,viewport.position.y)
                 else:
-                    print("updating to destination")
+                    #print("updating to destination")
                     viewport.position = vector(destination_x,viewport.position.y)
             elif player.world_pos.x < viewport.position.x + 1/3*viewport.size_meters.x:
                 destination_x = player.world_pos.x - 1/3*viewport.size_meters.x
                 if destination_x<area.lower_bound_x:
-                    print("reached min x value")
+                    #print("reached min x value")
                     viewport.position = vector(area.lower_bound_x,viewport.position.y)
                 else:
-                    print("updating to destination")
+                    #print("updating to destination")
                     viewport.position = vector(destination_x,viewport.position.y)
         if area.auto_pan_y:
             if player.movement_restricted('down') and in_air:
@@ -788,9 +789,7 @@ dirt1 = stage(
 
 
 playground = domain()
-print(viewport.position)
 viewport.position = vector(0,0)
-print(viewport.position)
 viewport.size_meters = vector(viewport.aspect_ratio*3,3)
 editing_area = playground
 
@@ -806,30 +805,21 @@ bricks_image = load_image('bricks.webp')
 
 bricks = stage(
     img = bricks_image,
-    world_pos = vector(10.2,10),
+    world_pos = vector(9.2,10),
     world_size = vector(1,20),
     zindex = 400
 )
 
 bricks2 = stage(
     img = bricks_image,
-    world_pos = vector(12.8,10),
+    world_pos = vector(13.8,10),
     world_size = vector(1,20),
     zindex = 400
 )
 
-oberma = background_object(
-    img = load_image("obama.png"),
-    world_pos = vector(10,0),
-    world_size = 10,
-    distance = 1.5
-)
-
 
 firefly_cottage = domain(auto_pan_y = False,upper_bound_x = 2.07,lower_bound_x = -2.95)
-print(viewport.position)
 viewport.position = vector(-100,0)
-print(viewport.position)
 viewport.size_meters = vector(viewport.aspect_ratio*3,3)
 
 editing_area = firefly_cottage
