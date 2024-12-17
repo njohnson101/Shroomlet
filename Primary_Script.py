@@ -824,8 +824,6 @@ oberma = background_object(
 
 
 
-
-
 firefly_cottage = domain(auto_pan_y = False,upper_bound_x = 2.07,lower_bound_x = -2.95)
 print(viewport.position)
 viewport.position = vector(-100,0)
@@ -914,7 +912,7 @@ player_hitboxes = [hitbox(scale = vector(0.58,0.9),)]
 player_hitboxes[0].opacity = 128
 player = player_class(
     hitboxes=player_hitboxes,
-    img=load_image("toadsworth.png"),
+    img=load_image("cassie_walk_4.png"),
     jump_height=1.5,
     world_pos = vector(0,2),
     world_size = 1,
