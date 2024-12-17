@@ -834,7 +834,7 @@ viewport.size_meters = vector(viewport.aspect_ratio*3,3)
 
 editing_area = firefly_cottage
 
-floor_image = load_image("WoodFloor.png")
+floor_image = load_image("WoodFloor.PNG")
 
 wall = world_object(
     img = load_image("Bedroom.png"),
@@ -874,15 +874,14 @@ floor_redux = physical_object(
     hitboxes=jamaica(),
     zindex = 50
 )
-
 bed = world_object(
-    img = load_image("Bed.png"),
+    img = load_image("Bed.PNG"),
     world_pos = vector(1.2,0.5),
     world_size = 0.7,
     zindex = 100
 )
 stool = world_object(
-    img = load_image("Stool.png"),
+    img = load_image("Stool.PNG"),
     world_pos = vector(1.75,0.3),
     world_size = 0.5,
     zindex = 200
@@ -900,7 +899,7 @@ picture_frames = world_object(
     zindex = 25
 )
 curtains = world_object(
-    img = load_image("Curtains.png"),
+    img = load_image("Curtains.PNG"),
     world_pos = vector(-1.72,2.05),
     world_size = 1.3,
     zindex = 25
@@ -908,12 +907,6 @@ curtains = world_object(
 
 
 print(firefly_cottage)
-
-
-
-
-
-
 
 
 # Generate player
@@ -934,7 +927,7 @@ window.push_handlers(player)
 
 area = firefly_cottage
 player.speed = 2
-player.jump_height = 0
+player.jump_height = 0.8
 
 #endregion ---------------------------------------------------------------------------------------------------------------------------------------------------
 

@@ -1,1 +1,0 @@
-opengl-registry~=0.3
