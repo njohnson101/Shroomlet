@@ -9,7 +9,7 @@ clock = pyglet.clock
 hitboxes = pyglet.graphics.Batch()
 
 window = pyglet.window.Window(fullscreen=True)
-window.set_caption('Skyrim')
+window.set_caption('Shroomlet')
 
 pyglet.resource.path = ['.','NolanSuckDuck/Assets']
 pyglet.resource.reindex()
@@ -42,7 +42,7 @@ air_friction = 5
 
 #region Initialize Areas--------------------------------------------------------------------------------------------------------------------------------------
 class domain(object):
-    def __init__(self,auto_pan_x = True,auto_pan_y = True,upper_bound_x = math.inf,lower_bound_x = -math.inf,upper_bound_y = math.inf,lower_bound_y = -math.inf):
+    def __init__(self,auto_pan_x = False,auto_pan_y = False,upper_bound_x = math.inf,lower_bound_x = -math.inf,upper_bound_y = math.inf,lower_bound_y = -math.inf):
         self.objects = []
         self.physical_objects = []
         self.backgrounds = []
@@ -769,8 +769,8 @@ def on_resize(width,height):
 #region WORKSPACE---------------------------------------------------------------------------------------------------------------------------------------------
 
 
-forest_1 = domain()
-editing_area = forest_1
+plain = domain()
+editing_area = plain
 
 # Load and format images
 dirt_image = load_image('dirt.png')
@@ -787,8 +787,8 @@ dirt = stage(
 
 
 
-forest_2 = domain()
-editing_area = forest_2
+playground = domain()
+editing_area = playground
 
 dirt = stage(
     img = dirt_image,
@@ -822,8 +822,6 @@ oberma = background_object(
 )
 
 
-
-
 firefly_cottage = domain(auto_pan_y = False,upper_bound_x = 2.07,lower_bound_x = -2.95)
 print(viewport.position)
 viewport.position = vector(-100,0)
@@ -837,7 +835,7 @@ floor_image = load_image("WoodFloor.PNG")
 wall = world_object(
     img = load_image("Bedroom.png"),
     world_pos = vector(-0.5,1.65),
-    world_size = 5.6,
+    world_size = 2.8, #5.6
     zindex = 10
 )
 
@@ -898,8 +896,8 @@ picture_frames = world_object(
 )
 curtains = world_object(
     img = load_image("Curtains.PNG"),
-    world_pos = vector(-1.72,2.05),
-    world_size = 1.3,
+    world_pos = vector(-1.77,2),
+    world_size = 1.2,
     zindex = 25
 )
 
@@ -923,7 +921,7 @@ player = player_class(
 
 window.push_handlers(player)
 
-area = firefly_cottage
+area = plain
 player.speed = 2
 player.jump_height = 0.8
 
